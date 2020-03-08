@@ -23,7 +23,6 @@ RCT_EXTERN_METHOD(
     uuid:                       (NSString *)uuid
     permissions:                (NSInteger *)permissions
     properties:                 (NSInteger *)properties
-    data:                       (NSString *)data
 )
 RCT_EXTERN_METHOD(
     start:
