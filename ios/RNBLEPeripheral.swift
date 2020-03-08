@@ -46,11 +46,12 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
     }
     
     @objc(addCharacteristicToService:uuid:permissions:properties:)
-    func addCharacteristicToService(_ serviceUUID: String, uuid: String, permissions: UInt, properties: UInt) {
+    func addCharacteristicToService(_ serviceUUID: String, uuid: String, permissions: UInt, properties: UInt, data: String) {
         let characteristicUUID = CBUUID(string: uuid)
         let propertyValue = CBCharacteristicProperties(rawValue: properties)
         let permissionValue = CBAttributePermissions(rawValue: permissions)
-        let characteristic = CBMutableCharacteristic( type: characteristicUUID, properties: propertyValue, value: nil, permissions: permissionValue)
+        let byteData = data.data(using: .utf8)!
+        let characteristic = CBMutableCharacteristic( type: characteristicUUID, properties: propertyValue, value: byteData, permissions: permissionValue)
         servicesMap[serviceUUID]?.characteristics?.append(characteristic)
         print("added characteristic to service")
     }
@@ -78,15 +79,16 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
     }
 
     @objc(sendNotificationToDevices:characteristicUUID:data:)
-    func sendNotificationToDevices(_ serviceUUID: String, characteristicUUID: String, data: Data) {
+    func sendNotificationToDevices(_ serviceUUID: String, characteristicUUID: String, data: String) {
         if(servicesMap.keys.contains(serviceUUID) == true){
             let service = servicesMap[serviceUUID]!
             let characteristic = getCharacteristicForService(service, characteristicUUID)
             if (characteristic == nil) { alertJS("service \(serviceUUID) does NOT have characteristic \(characteristicUUID)") }
 
+            let byteData = data.data(using: .utf8)!
             let char = characteristic as! CBMutableCharacteristic
-            char.value = data
-            let success = manager.updateValue( data, for: char, onSubscribedCentrals: nil)
+            char.value = byteData
+            let success = manager.updateValue( byteData, for: char, onSubscribedCentrals: nil)
             if (success){
                 print("changed data for characteristic \(characteristicUUID)")
             } else {

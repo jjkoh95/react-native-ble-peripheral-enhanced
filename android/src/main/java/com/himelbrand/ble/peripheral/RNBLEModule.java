@@ -22,7 +22,7 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -103,9 +103,10 @@ public class RNBLEModule extends ReactContextBaseJavaModule{
     }
 
     @ReactMethod
-    public void addCharacteristicToService(String serviceUUID, String uuid, Integer permissions, Integer properties) {
+    public void addCharacteristicToService(String serviceUUID, String uuid, Integer permissions, Integer properties, String data) {
         UUID CHAR_UUID = UUID.fromString(uuid);
         BluetoothGattCharacteristic tempChar = new BluetoothGattCharacteristic(CHAR_UUID, properties, permissions);
+        tempChar.setValue(data);
         this.servicesMap.get(serviceUUID).addCharacteristic(tempChar);
     }
 
@@ -224,13 +225,9 @@ public class RNBLEModule extends ReactContextBaseJavaModule{
         }
     }
     @ReactMethod
-    public void sendNotificationToDevices(String serviceUUID,String charUUID,ReadableArray message) {
-        byte[] decoded = new byte[message.size()];
-        for (int i = 0; i < message.size(); i++) {
-            decoded[i] = new Integer(message.getInt(i)).byteValue();
-        }
+    public void sendNotificationToDevices(String serviceUUID,String charUUID,String data) {
         BluetoothGattCharacteristic characteristic = servicesMap.get(serviceUUID).getCharacteristic(UUID.fromString(charUUID));
-        characteristic.setValue(decoded);
+        characteristic.setValue(data);
         boolean indicate = (characteristic.getProperties()
                 & BluetoothGattCharacteristic.PROPERTY_INDICATE)
                 == BluetoothGattCharacteristic.PROPERTY_INDICATE;

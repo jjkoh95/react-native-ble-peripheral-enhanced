@@ -23,6 +23,7 @@ RCT_EXTERN_METHOD(
     uuid:                       (NSString *)uuid
     permissions:                (NSInteger *)permissions
     properties:                 (NSInteger *)properties
+    data: (NSString *)data
 )
 RCT_EXTERN_METHOD(
     start:
@@ -31,7 +32,8 @@ RCT_EXTERN_METHOD(
 )
 RCT_EXTERN_METHOD(stop)
 RCT_EXTERN_METHOD(
-    sendNotificationToDevices: (NSString *)characteristicUUID
+    sendNotificationToDevices: (NSString *)serviceUUID
+    characteristicUUID: (NSString *)characteristicUUID
     data: (NSString *)data
 )
 RCT_EXTERN_METHOD(requiresMainQueueSetup)
