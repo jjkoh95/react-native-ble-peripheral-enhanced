@@ -35,9 +35,10 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
     func addService(_ uuid: String, primary: Bool) {
         let serviceUUID = CBUUID(string: uuid)
         let service = CBMutableService(type: serviceUUID, primary: primary)
+        service.characteristics = []
         if(servicesMap.keys.contains(uuid) != true){
             servicesMap[uuid] = service
-            manager.add(service)
+//            manager.add(service)
             print("added service \(uuid)")
         }
         else {
@@ -51,8 +52,16 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
         let propertyValue = CBCharacteristicProperties(rawValue: properties)
         let permissionValue = CBAttributePermissions(rawValue: permissions)
         let byteData = data.data(using: .utf8)!
-        let characteristic = CBMutableCharacteristic( type: characteristicUUID, properties: propertyValue, value: byteData, permissions: permissionValue)
-        servicesMap[serviceUUID]?.characteristics?.append(characteristic)
+        let newCharacteristic = CBMutableCharacteristic( type: characteristicUUID, properties: propertyValue, value: byteData, permissions: permissionValue)
+        servicesMap[serviceUUID]?.characteristics?.append(newCharacteristic)
+        
+        let success = manager.updateValue( byteData, for: newCharacteristic , onSubscribedCentrals: nil)
+        if (success){
+            print("changed data for characteristic \(characteristicUUID)")
+        } else {
+            alertJS("failed to send changed data for characteristic \(characteristicUUID)")
+        }
+        
         print("added characteristic to service")
     }
     
@@ -69,6 +78,12 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
             CBAdvertisementDataLocalNameKey: name,
             CBAdvertisementDataServiceUUIDsKey: getServiceUUIDArray()
             ] as [String : Any]
+        
+        for (_, service) in servicesMap {
+            print("Service ===> \(service)")
+            manager.add(service)
+        }
+
         manager.startAdvertising(advertisementData)
     }
     
@@ -162,6 +177,11 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
             state = peripheral.state
         }
         alertJS("BT state change: \(state)")
+        
+        if(hasListeners) {
+            print("BTstateChange listener")
+            sendEvent(withName: "BTstateChange", body: state)
+        }
     }
 
     // Advertising started
@@ -226,7 +246,7 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
         }
     }
 
-    @objc override func supportedEvents() -> [String]! { return ["onWarning"] }
+    @objc override func supportedEvents() -> [String]! { return ["onWarning", "BTstateChange"] }
     override func startObserving() { hasListeners = true }
     override func stopObserving() { hasListeners = false }
     @objc override static func requiresMainQueueSetup() -> Bool { return false }
