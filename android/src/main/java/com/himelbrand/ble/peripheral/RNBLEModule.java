@@ -12,8 +12,10 @@ import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.ParcelUuid;
 import android.util.Log;
@@ -26,11 +28,14 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.UUID;
+
+import androidx.annotation.NonNull;
 
 
 /**
@@ -39,7 +44,11 @@ import java.util.UUID;
  */
 public class RNBLEModule extends ReactContextBaseJavaModule {
 
+    private static final String MODULE_NAME = "RNBLEModule";
+
     private ReactApplicationContext reactContext;
+
+    private DeviceEventManagerModule.RCTDeviceEventEmitter emitter;
 
     private BluetoothManager mBluetoothManager;
 
@@ -55,15 +64,55 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private HashSet<BluetoothDevice> mBluetoothDevices = new HashSet<>();
 
+    @SuppressWarnings("WeakerAccess")
     public RNBLEModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
+        emitter = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
 
         mBluetoothManager = (BluetoothManager) reactContext.getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = mBluetoothManager != null ? mBluetoothManager.getAdapter() : null;
+
+        // BT State change listener
+        final BroadcastReceiver btStateChangeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                final String action = intent.getAction();
+
+                if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+                    final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+                    final String nextBTState;
+                    switch (state) {
+                        case BluetoothAdapter.STATE_OFF:
+                        case BluetoothAdapter.STATE_TURNING_OFF:
+                        case BluetoothAdapter.STATE_TURNING_ON:
+                            nextBTState = ".poweredOff";
+                            break;
+
+                        case BluetoothAdapter.STATE_ON:
+                            nextBTState = ".poweredOn";
+                            break;
+
+                        default:
+                            nextBTState = ".unknown";
+                    }
+
+                    alertJS("BT state change: " + nextBTState);
+
+                    if (emitter != null) {
+                        emitter.emit("BTstateChange", nextBTState);
+                    }
+                }
+            }
+        };
+
+        // Register for broadcasts on BluetoothAdapter state change
+        final IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        reactContext.registerReceiver(btStateChangeReceiver, filter);
     }
 
     @Override
+    @NonNull
     public String getName() {
         return "BLEPeripheral";
     }
@@ -72,7 +121,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
     public void setName(String name) {
         if (mBluetoothAdapter != null) {
             mBluetoothAdapter.setName(name);
-            Log.i("RNBLEModule", "name set to " + name);
+            Log.i(MODULE_NAME, "name set to " + name);
         }
     }
 
@@ -88,10 +137,10 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
             int type = primary ? BluetoothGattService.SERVICE_TYPE_PRIMARY : BluetoothGattService.SERVICE_TYPE_SECONDARY;
             final BluetoothGattService tempService = new BluetoothGattService(serviceUUID, type);
             this.servicesMap.put(uuid, tempService);
-            Log.i("RNBLEModule", "Added service " + uuid);
+            Log.i(MODULE_NAME, "Added service " + uuid);
         } else {
             // NotifyJS
-            // alertJS("service " + uuid + " already there");
+            alertJS("service " + uuid + " already there");
         }
     }
 
@@ -104,7 +153,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         tempChar.setValue(byteData);
 
         this.servicesMap.get(serviceUUID).addCharacteristic(tempChar);
-        Log.i("RNBLEModule", "Added characteristic to service");
+        Log.i(MODULE_NAME, "Added characteristic to service");
     }
 
     @ReactMethod
@@ -112,7 +161,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         // Ensures Bluetooth is available on the device and it is enabled. If not,
         // displays a dialog requesting user permission to enable Bluetooth.
         if (mBluetoothAdapter == null) {
-            promise.reject("EUNAVAILABLE", "BluetoothAdapter is not available.");
+            promise.reject("BT_UNAVAILABLE", "BluetoothAdapter is not available.");
             return;
         }
 
@@ -121,7 +170,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
             final Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             reactContext.startActivityForResult(enableBtIntent, 1, new Bundle());
             // Reject start promise - user required to attempt start again after enabling BT
-            promise.reject("EDISABLED", "BluetoothAdapter is disabled.");
+            promise.reject("BT_DISABLED", "BluetoothAdapter is disabled.");
             return;
         }
 
@@ -200,19 +249,19 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         }
 
         final AdvertiseData data = dataBuilder.build();
-        Log.i("RNBLEModule", data.toString());
+        Log.i(MODULE_NAME, data.toString());
 
         advertiser.startAdvertising(settings, data, new AdvertiseCallback() {
             @Override
             public void onStartSuccess(AdvertiseSettings settingsInEffect) {
                 super.onStartSuccess(settingsInEffect);
                 advertising = true;
-                promise.resolve("Success, Started Advertising");
+                promise.resolve(advertising);
             }
 
             @Override
             public void onStartFailure(int errorCode) {
-                Log.e("RNBLEModule", "Advertising onStartFailure: " + errorCode);
+                Log.e(MODULE_NAME, "Advertising onStartFailure: " + errorCode);
                 advertising = false;
 
                 String description;
@@ -237,7 +286,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
                 }
 
-                promise.reject("Advertising onStartFailure: " + errorCode + " - " + description);
+                promise.reject("AD_ERR", "Advertising onStartFailure: " + errorCode + " - " + description);
 
                 super.onStartFailure(errorCode);
             }
@@ -246,10 +295,13 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void stop(final Promise promise) {
+        Log.i(MODULE_NAME, "called stop");
+
         if (mGattServer != null) {
             mGattServer.close();
         }
 
+        // Reset connected bluetooth devices set
         mBluetoothDevices = new HashSet<>();
 
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled() && advertiser != null) {
@@ -259,13 +311,13 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
                 @Override
                 public void onStartSuccess(AdvertiseSettings settingsInEffect) {
                     super.onStartSuccess(settingsInEffect);
-                    advertising = true;
-                    promise.resolve("Success, Stopped Advertising");
+                    advertising = false;
+                    promise.resolve(advertising);
                 }
 
                 @Override
                 public void onStartFailure(int errorCode) {
-                    Log.e("RNBLEModule", "Advertising onStopFailure: " + errorCode);
+                    Log.e(MODULE_NAME, "Advertising onStopFailure: " + errorCode);
                     advertising = false;
 
                     String description;
@@ -289,7 +341,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
                             description = "UNKNOWN";
                     }
 
-                    promise.reject("Advertising onStopFailure: " + errorCode + " - " + description);
+                    promise.reject("AD_ERR", "Advertising onStopFailure: " + errorCode + " - " + description);
 
                     super.onStartFailure(errorCode);
                 }
@@ -299,23 +351,44 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void sendNotificationToDevices(String serviceUUID, String charUUID, String data) {
-        BluetoothGattCharacteristic characteristic = servicesMap.get(serviceUUID).getCharacteristic(UUID.fromString(charUUID));
+        final BluetoothGattService service = servicesMap.get(serviceUUID);
+        if (service == null) {
+            alertJS("service " + serviceUUID + " does not exist");
+            return;
+        }
+
+        final BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID.fromString(charUUID));
+        if (characteristic == null) {
+            alertJS("service " + serviceUUID + " does NOT have characteristic " + charUUID);
+            return;
+        }
 
         final byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
         characteristic.setValue(byteData);
 
+        // true for indication (acknowledge) and false for notification (un-acknowledge).
         boolean indicate = (characteristic.getProperties()
                 & BluetoothGattCharacteristic.PROPERTY_INDICATE)
                 == BluetoothGattCharacteristic.PROPERTY_INDICATE;
 
         for (BluetoothDevice device : mBluetoothDevices) {
-            // true for indication (acknowledge) and false for notification (un-acknowledge).
             mGattServer.notifyCharacteristicChanged(device, characteristic, indicate);
         }
+
+        Log.i(MODULE_NAME, "Changed data for characteristic " + charUUID);
     }
 
     @ReactMethod
     public void isAdvertising(Promise promise) {
+        Log.i(MODULE_NAME, "called isAdvertising");
         promise.resolve(this.advertising);
     }
+
+    private void alertJS(final String message) {
+        Log.w(MODULE_NAME, message);
+        if (emitter != null) {
+            emitter.emit("onWarning", message);
+        }
+    }
+
 }
