@@ -48,7 +48,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private ReactApplicationContext reactContext;
 
-    private DeviceEventManagerModule.RCTDeviceEventEmitter emitter;
+    // private DeviceEventManagerModule.RCTDeviceEventEmitter emitter;
 
     private BluetoothManager mBluetoothManager;
 
@@ -99,9 +99,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
                     alertJS("BT state change: " + nextBTState);
 
-                    if (emitter != null) {
-                        emitter.emit("BTstateChange", nextBTState);
-                    }
+                    sendEvent("BTstateChange", nextBTState);
                 }
             }
         };
@@ -238,11 +236,12 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         final AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
+                .setConnectable(true)
                 .build();
 
         final AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder()
-                .setIncludeTxPowerLevel(true)
-                .setIncludeDeviceName(true);
+                .setIncludeTxPowerLevel(false)
+                .setIncludeDeviceName(false);
 
         for (BluetoothGattService service : this.servicesMap.values()) {
             dataBuilder.addServiceUuid(new ParcelUuid(service.getUuid()));
@@ -386,9 +385,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private void alertJS(final String message) {
         Log.w(MODULE_NAME, message);
-        if (emitter != null) {
-            sendEvent("onWarning", message);
-        }
+        sendEvent("onWarning", message);
     }
 
     private void sendEvent(String eventName, Object params) {
