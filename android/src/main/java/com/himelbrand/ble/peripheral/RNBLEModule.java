@@ -68,7 +68,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
     public RNBLEModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
-        emitter = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
+        // emitter = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
 
         mBluetoothManager = (BluetoothManager) reactContext.getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = mBluetoothManager != null ? mBluetoothManager.getAdapter() : null;
@@ -387,8 +387,12 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
     private void alertJS(final String message) {
         Log.w(MODULE_NAME, message);
         if (emitter != null) {
-            emitter.emit("onWarning", message);
+            sendEvent("onWarning", message);
         }
+    }
+
+    private void sendEvent(String eventName, Object params) {
+        reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
     }
 
 }
