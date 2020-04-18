@@ -241,7 +241,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
         final AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder()
                 .setIncludeTxPowerLevel(false)
-                .setIncludeDeviceName(false);
+                .setIncludeDeviceName(true);
 
         for (BluetoothGattService service : this.servicesMap.values()) {
             dataBuilder.addServiceUuid(new ParcelUuid(service.getUuid()));
