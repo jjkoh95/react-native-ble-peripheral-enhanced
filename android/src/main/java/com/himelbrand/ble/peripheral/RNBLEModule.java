@@ -64,6 +64,8 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private HashSet<BluetoothDevice> mBluetoothDevices = new HashSet<>();
 
+    private byte[] serviceData;
+
     @SuppressWarnings("WeakerAccess")
     public RNBLEModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -149,6 +151,8 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
         final BluetoothGattCharacteristic tempChar = new BluetoothGattCharacteristic(characteristicUUID, properties, permissions);
         tempChar.setValue(byteData);
+
+        serviceData = byteData;
 
         this.servicesMap.get(serviceUUID).addCharacteristic(tempChar);
         Log.i(MODULE_NAME, "Added characteristic to service");
@@ -236,15 +240,17 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         final AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
-                .setConnectable(true)
+                .setConnectable(false)
                 .build();
 
         final AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder()
                 .setIncludeTxPowerLevel(false)
                 .setIncludeDeviceName(true);
+                // .addManufacturerData(1, new byte[]{66, 6});
 
         for (BluetoothGattService service : this.servicesMap.values()) {
             dataBuilder.addServiceUuid(new ParcelUuid(service.getUuid()));
+            // dataBuilder.addServiceData(new ParcelUuid(service.getUuid()), this.serviceData);
         }
 
         final AdvertiseData data = dataBuilder.build();
