@@ -80,6 +80,7 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
             CBAdvertisementDataIsConnectable: false,
             ] as [String : Any]
 
+        manager.removeAllServices()
         for (_, service) in servicesMap {
             print("Service ===> \(service)")
             manager.add(service)
