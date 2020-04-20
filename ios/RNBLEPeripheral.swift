@@ -77,7 +77,7 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
         let advertisementData = [
             CBAdvertisementDataLocalNameKey: name,
             CBAdvertisementDataServiceUUIDsKey: getServiceUUIDArray(),
-            CBAdvertisementDataIsConnectable: NSNull(),
+            CBAdvertisementDataIsConnectable: false,
             ] as [String : Any]
 
         for (_, service) in servicesMap {
