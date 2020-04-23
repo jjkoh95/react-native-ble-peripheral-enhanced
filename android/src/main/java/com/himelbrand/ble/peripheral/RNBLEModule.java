@@ -66,6 +66,47 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private byte[] serviceData;
 
+    private boolean isStartStopActionSuccessful;
+
+    private AdvertiseCallback mAdvertiseCallback;
+
+    private boolean isAdvertisingActive = false;
+
+    private class DummyAdvertiseCallback extends AdvertiseCallback {
+        @Override
+        public void onStartFailure(int errorCode) {
+            Log.e(MODULE_NAME, "Advertising onStartFailure: " + errorCode);
+            String description;
+            switch (errorCode) {
+                case ADVERTISE_FAILED_FEATURE_UNSUPPORTED:
+                    description = "ADVERTISE_FAILED_FEATURE_UNSUPPORTED";
+                    break;
+                case ADVERTISE_FAILED_TOO_MANY_ADVERTISERS:
+                    description = "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS";
+                    break;
+                case ADVERTISE_FAILED_ALREADY_STARTED:
+                    description = "ADVERTISE_FAILED_ALREADY_STARTED";
+                    break;
+                case ADVERTISE_FAILED_DATA_TOO_LARGE:
+                    description = "ADVERTISE_FAILED_DATA_TOO_LARGE";
+                    break;
+                case ADVERTISE_FAILED_INTERNAL_ERROR:
+                    description = "ADVERTISE_FAILED_INTERNAL_ERROR";
+                    break;
+                default:
+                    description = "UNKNOWN";
+
+            }
+            super.onStartFailure(errorCode);
+        }
+
+        @Override
+        public void onStartSuccess(AdvertiseSettings settingsInEffect) {
+            super.onStartSuccess(settingsInEffect);
+        }
+    }
+
+
     @SuppressWarnings("WeakerAccess")
     public RNBLEModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -160,6 +201,12 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void start(final Promise promise) {
+
+        if (isAdvertisingActive) {
+            promise.reject("ADVERTISE_START", "Is already started");
+            return;
+        }
+
         // Ensures Bluetooth is available on the device and it is enabled. If not,
         // displays a dialog requesting user permission to enable Bluetooth.
         if (mBluetoothAdapter == null) {
@@ -256,51 +303,24 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         final AdvertiseData data = dataBuilder.build();
         Log.i(MODULE_NAME, data.toString());
 
-        advertiser.startAdvertising(settings, data, new AdvertiseCallback() {
-            @Override
-            public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-                super.onStartSuccess(settingsInEffect);
-                advertising = true;
-                promise.resolve(advertising);
-            }
+        if (mAdvertiseCallback == null) {
+            mAdvertiseCallback = new DummyAdvertiseCallback();
+        }
 
-            @Override
-            public void onStartFailure(int errorCode) {
-                Log.e(MODULE_NAME, "Advertising onStartFailure: " + errorCode);
-                advertising = false;
+        advertiser.startAdvertising(settings, data, mAdvertiseCallback);
+        isAdvertisingActive = true;
 
-                String description;
-                switch (errorCode) {
-                    case ADVERTISE_FAILED_FEATURE_UNSUPPORTED:
-                        description = "ADVERTISE_FAILED_FEATURE_UNSUPPORTED";
-                        break;
-                    case ADVERTISE_FAILED_TOO_MANY_ADVERTISERS:
-                        description = "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS";
-                        break;
-                    case ADVERTISE_FAILED_ALREADY_STARTED:
-                        description = "ADVERTISE_FAILED_ALREADY_STARTED";
-                        break;
-                    case ADVERTISE_FAILED_DATA_TOO_LARGE:
-                        description = "ADVERTISE_FAILED_DATA_TOO_LARGE";
-                        break;
-                    case ADVERTISE_FAILED_INTERNAL_ERROR:
-                        description = "ADVERTISE_FAILED_INTERNAL_ERROR";
-                        break;
-                    default:
-                        description = "UNKNOWN";
-
-                }
-
-                promise.reject("AD_ERR", "Advertising onStartFailure: " + errorCode + " - " + description);
-
-                super.onStartFailure(errorCode);
-            }
-        });
+        promise.resolve(true);
     }
 
     @ReactMethod
     public void stop(final Promise promise) {
         Log.i(MODULE_NAME, "called stop");
+
+        if (!isAdvertisingActive) {
+            promise.reject("ADVERTISE_STOP", "Is already started");
+            return;
+        }
 
         if (mGattServer != null) {
             mGattServer.close();
@@ -312,46 +332,12 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled() && advertiser != null) {
             // If stopAdvertising() gets called before close() a null
             // pointer exception is raised.
-            advertiser.stopAdvertising(new AdvertiseCallback() {
-                @Override
-                public void onStartSuccess(AdvertiseSettings settingsInEffect) {
-                    super.onStartSuccess(settingsInEffect);
-                    advertising = false;
-                    promise.resolve(advertising);
-                }
-
-                @Override
-                public void onStartFailure(int errorCode) {
-                    Log.e(MODULE_NAME, "Advertising onStopFailure: " + errorCode);
-                    advertising = false;
-
-                    String description;
-                    switch (errorCode) {
-                        case ADVERTISE_FAILED_FEATURE_UNSUPPORTED:
-                            description = "ADVERTISE_FAILED_FEATURE_UNSUPPORTED";
-                            break;
-                        case ADVERTISE_FAILED_TOO_MANY_ADVERTISERS:
-                            description = "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS";
-                            break;
-                        case ADVERTISE_FAILED_ALREADY_STARTED:
-                            description = "ADVERTISE_FAILED_ALREADY_STARTED";
-                            break;
-                        case ADVERTISE_FAILED_DATA_TOO_LARGE:
-                            description = "ADVERTISE_FAILED_DATA_TOO_LARGE";
-                            break;
-                        case ADVERTISE_FAILED_INTERNAL_ERROR:
-                            description = "ADVERTISE_FAILED_INTERNAL_ERROR";
-                            break;
-                        default:
-                            description = "UNKNOWN";
-                    }
-
-                    promise.reject("AD_ERR", "Advertising onStopFailure: " + errorCode + " - " + description);
-
-                    super.onStartFailure(errorCode);
-                }
-            });
+            advertiser.stopAdvertising(mAdvertiseCallback);
         }
+
+        isAdvertisingActive = false;
+        mAdvertiseCallback = null;
+        promise.resolve(true);
     }
 
     @ReactMethod
