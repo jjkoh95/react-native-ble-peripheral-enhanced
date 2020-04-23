@@ -71,27 +71,36 @@ class BLEPeripheral: RCTEventEmitter, CBPeripheralManagerDelegate {
             return;
         }
 
+        if (advertising) {
+            resolve(advertising);
+            return;
+        }
+
         startPromiseResolve = resolve
         startPromiseReject = reject
 
         let advertisementData = [
             CBAdvertisementDataLocalNameKey: name,
             CBAdvertisementDataServiceUUIDsKey: getServiceUUIDArray(),
-            CBAdvertisementDataIsConnectable: false,
+            CBAdvertisementDataIsConnectable: true,
             ] as [String : Any]
 
-        manager.removeAllServices()
         for (_, service) in servicesMap {
             print("Service ===> \(service)")
             manager.add(service)
         }
 
         manager.startAdvertising(advertisementData)
+        advertising = true;
     }
 
     @objc func stop() {
+        if (!advertising) {
+            return;
+        }
         manager.stopAdvertising()
         advertising = false
+        manager.removeAllServices()
         print("called stop")
     }
 
