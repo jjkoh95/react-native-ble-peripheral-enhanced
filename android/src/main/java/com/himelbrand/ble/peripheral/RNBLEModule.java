@@ -203,7 +203,8 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
     public void start(final Promise promise) {
 
         if (isAdvertisingActive) {
-            promise.reject("ADVERTISE_START", "Is already started");
+            // promise.reject("ADVERTISE_START", "Is already started");
+            promise.resolve(true);
             return;
         }
 
@@ -318,7 +319,8 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         Log.i(MODULE_NAME, "called stop");
 
         if (!isAdvertisingActive) {
-            promise.reject("ADVERTISE_STOP", "Is already stopped");
+            promise.resolve(true);
+            // promise.reject("ADVERTISE_STOP", "Is already stopped");
             return;
         }
 
