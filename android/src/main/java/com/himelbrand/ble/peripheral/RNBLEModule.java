@@ -74,7 +74,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private class DummyAdvertiseCallback extends AdvertiseCallback {
 
-        private Promise promise
+        private Promise promise;
 
         public void setPromise(Promise promise) {
             this.promise = promise;
@@ -104,8 +104,9 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
                     description = "UNKNOWN";
 
             }
+            promise.reject("AD_ERR", "Advertising onStartFailure: " + errorCode + " - " + description);
             super.onStartFailure(errorCode);
-            promise.resolve(false);
+            // promise.resolve(false);
         }
 
         @Override
