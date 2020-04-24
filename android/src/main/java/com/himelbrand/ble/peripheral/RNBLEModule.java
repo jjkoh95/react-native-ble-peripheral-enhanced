@@ -68,7 +68,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private boolean isStartStopActionSuccessful;
 
-    private AdvertiseCallback mAdvertiseCallback;
+    private DummyAdvertiseCallback mAdvertiseCallback;
 
     private boolean isAdvertisingActive = false;
 
