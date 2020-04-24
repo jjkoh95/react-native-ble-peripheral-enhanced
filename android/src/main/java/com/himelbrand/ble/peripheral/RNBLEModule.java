@@ -387,7 +387,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void isAdvertising(Promise promise) {
         Log.i(MODULE_NAME, "called isAdvertising");
-        promise.resolve(this.advertising);
+        promise.resolve(this.isAdvertisingActive);
     }
 
     private void alertJS(final String message) {
