@@ -64,10 +64,6 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
     private HashSet<BluetoothDevice> mBluetoothDevices = new HashSet<>();
 
-    private byte[] serviceData;
-
-    private boolean isStartStopActionSuccessful;
-
     private DummyAdvertiseCallback mAdvertiseCallback;
 
     private boolean isAdvertisingActive = false;
@@ -202,8 +198,6 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
         final BluetoothGattCharacteristic tempChar = new BluetoothGattCharacteristic(characteristicUUID, properties, permissions);
         tempChar.setValue(byteData);
-
-        serviceData = byteData;
 
         this.servicesMap.get(serviceUUID).addCharacteristic(tempChar);
         Log.i(MODULE_NAME, "Added characteristic to service");
