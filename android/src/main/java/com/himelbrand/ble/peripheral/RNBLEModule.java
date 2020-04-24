@@ -73,6 +73,13 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
     private boolean isAdvertisingActive = false;
 
     private class DummyAdvertiseCallback extends AdvertiseCallback {
+
+        private Promise promise
+
+        public void setPromise(Promise promise) {
+            this.promise = promise;
+        }
+
         @Override
         public void onStartFailure(int errorCode) {
             Log.e(MODULE_NAME, "Advertising onStartFailure: " + errorCode);
@@ -98,11 +105,13 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
 
             }
             super.onStartFailure(errorCode);
+            promise.resolve(false);
         }
 
         @Override
         public void onStartSuccess(AdvertiseSettings settingsInEffect) {
             super.onStartSuccess(settingsInEffect);
+            promise.resolve(true);
         }
     }
 
@@ -308,10 +317,9 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
             mAdvertiseCallback = new DummyAdvertiseCallback();
         }
 
+        mAdvertiseCallback.setPromise(promise);
         advertiser.startAdvertising(settings, data, mAdvertiseCallback);
         isAdvertisingActive = true;
-
-        promise.resolve(true);
     }
 
     @ReactMethod
@@ -334,12 +342,16 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled() && advertiser != null) {
             // If stopAdvertising() gets called before close() a null
             // pointer exception is raised.
+            mAdvertiseCallback.setPromise(promise);
             advertiser.stopAdvertising(mAdvertiseCallback);
+            isAdvertisingActive = false;
+            mAdvertiseCallback = null;
+        } else {
+            // no active ble, assume stop successfully
+            promise.resolve(true);
+            isAdvertisingActive = false;
+            mAdvertiseCallback = null;
         }
-
-        isAdvertisingActive = false;
-        mAdvertiseCallback = null;
-        promise.resolve(true);
     }
 
     @ReactMethod
