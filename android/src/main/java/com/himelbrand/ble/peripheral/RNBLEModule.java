@@ -292,7 +292,7 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         final AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
-                .setConnectable(false)
+                .setConnectable(true)
                 .build();
 
         final AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder()
