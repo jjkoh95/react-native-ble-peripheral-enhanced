@@ -228,6 +228,12 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
             return;
         }
 
+        if (!mBluetoothAdapter.isMultipleAdvertisementSupported()) {
+            promise.reject("BT_UNAVAILABLE", "Advertisement function not supported");
+            isAdvertisingActive = true; // advertising active, we won't need to validate again anyway
+            return;
+        }
+
         mGattServer = mBluetoothManager.openGattServer(reactContext, new BluetoothGattServerCallback() {
             @Override
             public void onConnectionStateChange(BluetoothDevice device, final int status, int newState) {
@@ -281,39 +287,47 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
             }
         });
 
-        for (BluetoothGattService service : this.servicesMap.values()) {
-            mGattServer.addService(service);
+        try {
+            for (BluetoothGattService service : this.servicesMap.values()) {
+                mGattServer.addService(service);
+            }
+
+            if (advertiser == null) {
+                advertiser = mBluetoothAdapter.getBluetoothLeAdvertiser();
+            }
+
+            final AdvertiseSettings settings = new AdvertiseSettings.Builder()
+                    .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+                    .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
+                    .setConnectable(true)
+                    .build();
+
+            final AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder()
+                    .setIncludeTxPowerLevel(false)
+                    .setIncludeDeviceName(true);
+                    // .addManufacturerData(1, new byte[]{66, 6});
+
+            for (BluetoothGattService service : this.servicesMap.values()) {
+                dataBuilder.addServiceUuid(new ParcelUuid(service.getUuid()));
+                // dataBuilder.addServiceData(new ParcelUuid(service.getUuid()), this.serviceData);
+            }
+
+            final AdvertiseData data = dataBuilder.build();
+            Log.i(MODULE_NAME, data.toString());
+
+            if (mAdvertiseCallback == null) {
+                mAdvertiseCallback = new DummyAdvertiseCallback();
+            }
+
+            mAdvertiseCallback.setPromise(promise);
+            advertiser.startAdvertising(settings, data, mAdvertiseCallback);
+        } catch (Exception e) {
+            // most likely it is the limitation of device
+            // nothing we can do about it
+            promise.reject("AD_ERR", "Advertising failed");
         }
-
-        if (advertiser == null) {
-            advertiser = mBluetoothAdapter.getBluetoothLeAdvertiser();
-        }
-
-        final AdvertiseSettings settings = new AdvertiseSettings.Builder()
-                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
-                .setConnectable(true)
-                .build();
-
-        final AdvertiseData.Builder dataBuilder = new AdvertiseData.Builder()
-                .setIncludeTxPowerLevel(false)
-                .setIncludeDeviceName(true);
-                // .addManufacturerData(1, new byte[]{66, 6});
-
-        for (BluetoothGattService service : this.servicesMap.values()) {
-            dataBuilder.addServiceUuid(new ParcelUuid(service.getUuid()));
-            // dataBuilder.addServiceData(new ParcelUuid(service.getUuid()), this.serviceData);
-        }
-
-        final AdvertiseData data = dataBuilder.build();
-        Log.i(MODULE_NAME, data.toString());
-
-        if (mAdvertiseCallback == null) {
-            mAdvertiseCallback = new DummyAdvertiseCallback();
-        }
-
-        mAdvertiseCallback.setPromise(promise);
-        advertiser.startAdvertising(settings, data, mAdvertiseCallback);
+        // always set this to true
+        // easier to reason about
         isAdvertisingActive = true;
     }
 
@@ -337,8 +351,14 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled() && advertiser != null) {
             // If stopAdvertising() gets called before close() a null
             // pointer exception is raised.
-            mAdvertiseCallback.setPromise(promise);
-            advertiser.stopAdvertising(mAdvertiseCallback);
+            try {
+                mAdvertiseCallback.setPromise(promise);
+                advertiser.stopAdvertising(mAdvertiseCallback);
+            } catch (Exception e) {
+            }
+            // always to reset these parameters
+            // easier to reason about too
+            // but it might mess up with the callback function
             isAdvertisingActive = false;
             mAdvertiseCallback = null;
         } else {
