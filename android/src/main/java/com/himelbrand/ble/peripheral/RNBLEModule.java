@@ -228,11 +228,11 @@ public class RNBLEModule extends ReactContextBaseJavaModule {
             return;
         }
 
-        if (!mBluetoothAdapter.isMultipleAdvertisementSupported()) {
-            promise.reject("BT_UNAVAILABLE", "Advertisement function not supported");
-            isAdvertisingActive = true; // advertising active, we won't need to validate again anyway
-            return;
-        }
+        // if (!mBluetoothAdapter.isMultipleAdvertisementSupported()) {
+        //     promise.reject("BT_UNAVAILABLE", "Advertisement function not supported");
+        //     isAdvertisingActive = true; // advertising active, we won't need to validate again anyway
+        //     return;
+        // }
 
         mGattServer = mBluetoothManager.openGattServer(reactContext, new BluetoothGattServerCallback() {
             @Override
